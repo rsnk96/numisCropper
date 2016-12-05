@@ -15,12 +15,12 @@ if(not os.path.isdir('corrected')):
     os.mkdir('corrected')
 
 for file in files:
-    OG = cv2.imread(file)
-    a = cv2.resize(cv2.cvtColor(OG, cv2.COLOR_BGR2GRAY), None, fx=0.25, fy=0.25)
+    OG = cv2.imread(file,0)
+    a = cv2.resize(OG, None, fx=0.25, fy=0.25)
     a = cv2.GaussianBlur(a, (31,31), 0)
     a = cv2.medianBlur(a, 9)
 
-    thresh = cv2.adaptiveThreshold(a, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 5, 1)
+    thresh = cv2.adaptiveThreshold(a, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 9, 2)
     # ret, thresh = cv2.threshold(a, 100, 255, 1)
 
     kernel = np.ones((11,11), dtype=np.uint8)
@@ -30,18 +30,19 @@ for file in files:
 
     cont_img = thresh.copy()
     _,contours,hierarchy = cv2.findContours(cont_img, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)  #contours[1:] because border of image also detected as a contour
-    max_contour = contours[np.argmax(len(i) for i in contours)]
+    # max_contour = contours[np.argmax(len(i) for i in contours)]
     max_contour = contours[-1]
 
-    try:
-        ellipse_temp = cv2.fitEllipse(max_contour)
-        if(not ellipse_temp[1][1]<100):
-            ellipse=ellipse_temp
+    thresh = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+    contour_image = np.zeros_like(thresh)
+    cv2.drawContours(contour_image, contours, len(contours)-1, (0,255,0),3)
+
+
+    '''try:
+        ellipse = cv2.fitEllipse(max_contour)
     except:
         print(file,': unable to fit ellipse')
-
-    thresh = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
-    cv2.ellipse(thresh, ellipse, (0,255,0), 2)
+    cv2.ellipse(thresh, ellipse, (0,255,0), 2)'''
 
     
     '''coords = np.argwhere(thresh)
@@ -61,20 +62,22 @@ for file in files:
     output_image = a[y_range[0]:y_range[1],x_range[0]:x_range[1]]
     cv2.circle(thresh, (int(y_mean), int(x_mean)), max(int(x_span), int(y_span)),128 )'''
     
-    row_range = [max(0,4*ellipse[0][1]-4*ellipse[1][1]), min(4*ellipse[0][1]+4*ellipse[1][1],OG.shape[0]) ]
-    column_range = [max(4*ellipse[0][0]-4*ellipse[1][0],0), min(4*ellipse[0][0]+4*ellipse[1][0],OG.shape[1])]
-    output_image = OG[int(row_range[0]):int(row_range[1]), int(column_range[0]):int(column_range[1])] 
+    # row_range = [max(0,4*ellipse[0][1]-4*ellipse[1][1]), min(4*ellipse[0][1]+4*ellipse[1][1],OG.shape[0]) ]
+    # column_range = [max(4*ellipse[0][0]-4*ellipse[1][0],0), min(4*ellipse[0][0]+4*ellipse[1][0],OG.shape[1])]
+    # output_image = OG[row_range[0]:row_range[1], column_range[0]:column_range[1]] 
     
+    circles = cv2.HoughCircles(cv2.cvtColor(contour_image, cv2.COLOR_BGR2GRAY), cv2.HOUGH_GRADIENT, dp=1, minDist=1, param2=5, minRadius=50, maxRadius=120)[0]
+    circles = circles[circles[:,2].argsort()][::-1]
+    cv2.circle(contour_image, (circles[0,0], circles[0,1]), circles[0,2], (255,0,0), 4)
 
-
-    # cv2.namedWindow('output',0)
+    cv2.namedWindow('output',0)
     # # cv2.imshow('output', np.hstack((thresh,thresh2)))
-    # cv2.imshow('output', output_image)
-    # if(cv2.waitKey()==ord('q')):
-    #     break
+    cv2.imshow('output', contour_image)
+    if(cv2.waitKey()==ord('q')):
+        break
 
 
-    cv2.imwrite(os.path.join('corrected',file), output_image)
+    # cv2.imwrite(os.path.join('corrected',file), contour_image)
 
 
 os.chdir(cwd)
